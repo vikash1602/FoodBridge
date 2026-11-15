@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: foodbridge
+          POSTGRES_PASSWORD: foodbridge
+          POSTGRES_DB: foodbridge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U foodbridge"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      SECRET_KEY: ci-secret-key-not-used-in-production-0123456789abcdef
+      DEBUG: "True"
+      DATABASE_URL: postgres://foodbridge:foodbridge@127.0.0.1:5432/foodbridge
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python manage.py check
+      - run: python manage.py makemigrations --check --dry-run
+      - name: Run tests (incl. 50-thread claim concurrency test)
+        run: python -m pytest -q
+
+  frontend:
+    name: Frontend lint + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+        env:
+          VITE_API_URL: http://127.0.0.1:8000
+      # Playwright E2E runs locally (needs the backend venv + seeded e2e DB):
+      #   cd frontend && npx playwright test
+      # It is intentionally not part of CI to keep the pipeline lean; unit +
+      # concurrency coverage already runs above against real PostgreSQL.

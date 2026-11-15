@@ -1,0 +1,106 @@
+# Render Blueprint — FoodBridge staging, free tier only.
+# Deploy: Render Dashboard → New → Blueprint → point at this repository.
+#
+# COST CONTROL (read before enabling the optional worker):
+#   Render Free shares 750 instance-hours/month across ALL free services.
+#   The web service sleeps after ~15 min idle, so real consumption is far
+#   below 24/7 (typically 100–300 h/month with hourly cron pings + light
+#   use). A SECOND always-on service would add ~720 h and can push the
+#   total past 750 h → automatic suspension mid-month. The default is
+#   therefore WEB SERVICE ONLY; outbox recovery runs from cron-job.org
+#   calling the secured POST /api/v1/cron/process-email-outbox/ endpoint
+#   hourly (which also wakes the service). The free background worker is
+#   included below, commented out, for teams that accept the hours
+#   trade-off. Render Cron Jobs are a PAID feature — not used.
+#
+# Fill the sync:false secrets in the Render dashboard after the first
+# deploy (Environment → Environment Variables). Nothing here costs money.
+
+services:
+  # Django API + SSE (async Uvicorn, single worker). Free web service.
+  # NOTE: Uvicorn has no --threads flag (verified against installed Uvicorn
+  # 0.54.0 — that option belongs to Gunicorn). Concurrency comes from the
+  # async event loop; keep --workers 1 for the 512 MB free instance.
+  - type: web
+    name: foodbridge-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: |
+      pip install -r requirements.txt
+      # Migrations MUST use the DIRECT (non-pooler) Neon connection:
+      # PgBouncer pooled mode interferes with SELECT … FOR UPDATE in rare
+      # contention. The direct string is provided as MIGRATION_DATABASE_URL.
+      # Render Free has no Shell or one-off jobs, so migrations run here.
+      if [ -z "$MIGRATION_DATABASE_URL" ]; then
+        echo "ERROR: MIGRATION_DATABASE_URL is not set (Neon DIRECT connection string, e.g. postgresql://…/neondb?sslmode=require)."
+        exit 1
+      fi
+      DATABASE_URL="$MIGRATION_DATABASE_URL" python manage.py migrate --no-input
+    startCommand: python -m uvicorn config.asgi:application --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75
+    healthCheckPath: /api/v1/config/
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false            # Neon POOLED connection string (runtime, …-pooler…/neondb?sslmode=require)
+      - key: MIGRATION_DATABASE_URL
+        sync: false            # Neon DIRECT connection string (migrations only, no -pooler)
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false            # https://<project>.vercel.app
+      - key: FRONTEND_URL
+        sync: false            # https://<project>.vercel.app
+      - key: RESEND_API_KEY
+        sync: false
+      - key: OTP_EMAIL_FROM
+        value: FoodBridge <onboarding@resend.dev>
+      - key: OTP_EMAIL_FALLBACK_TO_CONSOLE
+        value: "true"
+      - key: CRON_SECRET_KEY
+        sync: false
+      # --- Neon Object Storage (photos; free 5 GB) ---
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false            # Neon storage credential (token_id, storage:write)
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false            # Neon storage credential secret
+      - key: AWS_S3_REGION_NAME
+        value: us-east-2
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false            # https://<branch-id>.storage.c-1.us-east-2.aws.neon.tech
+      # --- city config (optional overrides) ---
+      - key: DEFAULT_CITY_NAME
+        value: Vaniyambadi
+
+  # OPTIONAL free background worker (outbox recovery loop) — see the hours
+  # warning above. Uncomment ONLY if your web-service usage is very light.
+  # - type: worker
+  #   name: foodbridge-outbox
+  #   runtime: python
+  #   plan: free
+  #   rootDir: backend
+  #   buildCommand: pip install -r requirements.txt
+  #   startCommand: python manage.py process_email_outbox --loop --interval 60
+  #   envVars:
+  #     - key: PYTHON_VERSION
+  #       value: "3.11.9"
+  #     - key: DEBUG
+  #       value: "False"
+  #     - key: SECRET_KEY
+  #       sync: false
+  #     - key: DATABASE_URL
+  #       sync: false
+  #     - key: RESEND_API_KEY
+  #       sync: false
+  #     - key: OTP_EMAIL_FROM
+  #       value: FoodBridge <onboarding@resend.dev>
+  #     - key: OTP_EMAIL_FALLBACK_TO_CONSOLE
+  #       value: "true"

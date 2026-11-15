@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- The Kitchen Ledger design tokens ---- */
+
+:root {
+  --fb-bg: #faf6ec;
+  --fb-surface: #fffdf6;
+  --fb-ink: #1c1917;
+  --fb-ink-soft: #57534e;
+  --fb-line: #e7dcc3;
+  --fb-shadow: rgba(28, 25, 23, 0.1);
+}
+
+.dark {
+  --fb-bg: #151009;
+  --fb-surface: #1e1812;
+  --fb-ink: #f5efe2;
+  --fb-ink-soft: #b8ac97;
+  --fb-line: #3b3227;
+  --fb-shadow: rgba(0, 0, 0, 0.45);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-[color:var(--fb-bg)] text-[color:var(--fb-ink)] font-sans antialiased;
+  background-image: radial-gradient(rgba(28, 25, 23, 0.035) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.dark body {
+  background-image: radial-gradient(rgba(245, 239, 226, 0.04) 1px, transparent 1px);
+}
+
+/* Fraunces headings get a touch of optical sizing */
+.font-display {
+  font-optical-sizing: auto;
+}
+
+/* ---------- components ---------- */
+
+@layer components {
+  /* Receipt-ticket card: dashed perforation at the top.
+     (The old .ticket-notch pin/rivet circle was removed — cards keep a
+     clean top edge; the perforation line and card shape are unchanged.) */
+  .ticket {
+    @apply relative bg-[color:var(--fb-surface)] rounded-ticket shadow-card border border-[color:var(--fb-line)];
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--fb-line) 70%, transparent) 0 2px,
+      transparent 2px
+    );
+  }
+
+  /* Button design tokens (Phase 2 of the button audit).
+     The base carries the shared metrics so EVERY variant is comfortably
+     padded even without explicit size utilities:
+       - padding: 20px horizontal / 10px vertical  → ~44px tall at text-base,
+         ~40px at text-sm (per-usage height and padding utilities still
+         override these defaults);
+       - gap-2 = the 8px icon/label gap;
+       - icons never shrink (flex-shrink: 0), so labels never get squeezed. */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold
+      transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 focus-visible:ring-offset-2
+      focus-visible:ring-offset-[color:var(--fb-bg)]
+      disabled:opacity-50 disabled:pointer-events-none select-none active:scale-[0.98];
+  }
+  .btn > svg {
+    flex-shrink: 0;
+  }
+  .btn-primary {
+    @apply btn bg-forest-700 text-paper hover:bg-forest-600 dark:bg-forest-400 dark:text-pantry-950
+      dark:hover:bg-forest-300 shadow-card;
+  }
+  .btn-saffron {
+    @apply btn bg-saffron-500 text-pantry-950 hover:bg-saffron-400 shadow-card;
+  }
+  .btn-danger {
+    @apply btn bg-tomato-500 text-white hover:bg-tomato-400;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-[color:var(--fb-ink)] hover:bg-forest-100/70 dark:hover:bg-pantry-700;
+  }
+  .btn-outline {
+    @apply btn border-2 border-[color:var(--fb-line)] hover:border-forest-500 hover:text-forest-700
+      dark:hover:text-forest-300 bg-transparent;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-[color:var(--fb-line)] bg-[color:var(--fb-surface)] px-3.5 py-2.5
+      text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-forest-500/60 focus:border-forest-500;
+  }
+  .input::placeholder {
+    color: color-mix(in srgb, var(--fb-ink-soft) 60%, transparent);
+  }
+
+  .label {
+    @apply block text-xs font-bold uppercase tracking-wider text-[color:var(--fb-ink-soft)] mb-1.5;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide;
+  }
+
+  .sticker {
+    @apply inline-flex items-center gap-1.5 rounded-lg border-2 px-2 py-0.5 text-[11px] font-extrabold
+      uppercase tracking-wider -rotate-1;
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift;
+  }
+}
+
+/* ---------- utilities ---------- */
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--fb-line);
+    border-radius: 3px;
+  }
+}
+
+/* Anchor/scroll targets must never hide beneath the sticky header. */
+:where(h1, h2, h3, section, [id]) {
+  scroll-margin-top: 5.5rem;
+}
+
+/* ---------- application-wide z-index hierarchy ----------
+   One explicit scale so stacking never becomes archaeology.
+   Consumed via the CSS variables below (Tailwind arbitrary values
+   like z-[var(--z-tour-card)] or inline style={{ zIndex }}).
+   1      app content
+   100    sidebar / sticky header / mobile dock
+   400+   Leaflet panes & controls (leaflet defaults, contained per-map)
+   500    ordinary popovers (bell dropdown etc.)
+   2000   modal dialogs (ui.tsx Modal)
+   9000   guided-tour dim/spotlight layer
+   9100   guided-tour tooltip card
+   9999   critical alerts (react-hot-toast toasts, confetti)        */
+:root {
+  --z-app: 1;
+  --z-chrome: 100;
+  --z-popover: 500;
+  --z-modal: 2000;
+  --z-tour-backdrop: 9000;
+  --z-tour-card: 9100;
+  --z-critical: 9999;
+}
+
+/* Every Leaflet map is its own stacking context. Leaflet's internal panes
+   use z-index 400–1000; without this, they escape into the root stacking
+   context and paint over app chrome and the guided tour. Containing them
+   per-map keeps the map below everything in the scale above. */
+
+/* Leaflet tweaks so the map matches the design.
+   z-index: 0 makes every map its own stacking context (see hierarchy above). */
+.leaflet-container {
+  z-index: 0;
+  font-family: "Inter", sans-serif;
+  background: var(--fb-surface);
+}
+.leaflet-tile {
+  filter: saturate(0.85) sepia(0.12);
+}
+.dark .leaflet-tile {
+  filter: invert(0.92) hue-rotate(185deg) saturate(0.5) brightness(0.95);
+}
+.leaflet-control-attribution {
+  font-size: 9px !important;
+  background: color-mix(in srgb, var(--fb-surface) 80%, transparent) !important;
+  color: var(--fb-ink-soft) !important;
+}
+.fb-marker {
+  background: transparent;
+  border: none;
+}
+.fb-plate {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+.fb-plate:hover,
+.fb-plate:focus {
+  transform: scale(1.18);
+}
+
+/* confetti pieces */
+.confetti-piece {
+  position: fixed;
+  top: -12px;
+  width: 10px;
+  height: 14px;
+  z-index: 9999;
+  animation: confetti-fall linear forwards;
+}
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-4vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(108vh) rotate(720deg);
+    opacity: 0.9;
+  }
+}
+
+/* reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

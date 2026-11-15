@@ -1,0 +1,56 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Local logs
+logs/
+**/logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+
+# Node and frontend builds
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+
+# Local database and uploaded files
+*.sqlite3
+db.sqlite3
+media/
+uploads/
+
+# Private key and certificate files
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Operating system files
+.DS_Store
+Thumbs.db
+# Generated TypeScript build caches and reports
+*.tsbuildinfo
+frontend/sweep-report.json
+
+# Temporary diagnostic probes
+backend/probe_*.py
+frontend/probe-landing.cjs
+backend/probe.png
+docs/screenshots/ui-repair/probe-mobile-app.png

@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest>=8.3.3
+pytest-django>=4.9.0
+# Local dev fallback: on some Windows machines with Smart App Control enabled,
+# the psycopg v3 binary DLL gets blocked; Django auto-falls-back to psycopg2.
+psycopg2-binary>=2.9.9

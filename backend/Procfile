@@ -1,0 +1,3 @@
+web: gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker --workers 2 --threads 4 --bind 0.0.0.0:$PORT
+# Cron (Render dashboard or system crontab) — settle expiry & no-shows every 5 minutes:
+#   */5 * * * * python manage.py expire_listings
